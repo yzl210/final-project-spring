@@ -2,6 +2,9 @@ import javax.swing.*;
 
 // Based on code from here: https://stackoverflow.com/questions/65907092/where-should-i-put-the-game-loop-in-the-swing-app
 public class GameManager {
+
+    public static final boolean DEBUG = false;
+
     private final GameBoard gameBoard;
     // how many frames should be drawn in a second
     private final int FRAMES_PER_SECOND = 60;
