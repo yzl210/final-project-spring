@@ -1,5 +1,9 @@
 import java.util.List;
 
+/**
+ * Provides access to game state and utilities for actors during gameplay. <br>
+ * Allows actors to query input, manage other actors, and access game information.
+ */
 public interface GameContext {
     long getFrameCount();
 
@@ -21,5 +25,11 @@ public interface GameContext {
 
     int getCurrentLevel();
 
+    /**
+     * Notifies the game context that an enemy has been killed. <br>
+     * Used for tracking score, spawning rewards, or progression logic.
+     *
+     * @param enemy the enemy plane that was killed
+     */
     void onEnemyKilled(EnemyPlane enemy);
 }

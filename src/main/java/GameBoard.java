@@ -7,74 +7,142 @@ import java.util.List;
 import java.util.Queue;
 
 /**
- * A panel that will be used to display the game board, where animations occur
+ * The main game panel that manages game state, rendering, and input. <br>
+ * Handles the game loop, level progression, upgrade shop, and UI rendering.
  */
 public class GameBoard extends JPanel implements KeyListener {
+    /**
+     * The game context provided to actors.
+     */
     private final GameContext context = new GameBoardContext();
 
+    /**
+     * The total number of frames elapsed since game start.
+     */
     private long frameCount = 0;
+
+    /**
+     * The player's plane.
+     */
     private PlayerPlane playerPlane = new PlayerPlane();
+
+    /**
+     * All active actors in the game.
+     */
     private final List<Actor> actors = new ArrayList<>();
+
+    /**
+     * All active damageable game objects for collision detection.
+     */
     private final List<DamageableGameObject> damageableGameObjects = new ArrayList<>();
-    private final List<KeyListener> keyListeners = new ArrayList<>();
+
+    /**
+     * Set of currently pressed key codes.
+     */
     private final Set<Integer> pressedKeys = new HashSet<>();
+
+    /**
+     * Queue of tasks to execute before the next frame (e.g. actor add/remove).
+     */
     private final Queue<Runnable> pendingTasks = new ArrayDeque<>();
+
+    /**
+     * The current level.
+     */
     private int currentLevel = 1;
+
+    /**
+     * The enemy spawner for the current level.
+     */
     private EnemySpawner enemySpawner = new EnemySpawner(currentLevel);
+
+    /**
+     * The player's total score.
+     */
     private int score = 0;
+
+    /**
+     * The player's currency for purchasing upgrades.
+     */
     private int coins = 0;
+
+    /**
+     * Whether the current level has ended (upgrade shop active).
+     */
     private boolean levelEnd = false;
+
+    /**
+     * Whether the game is over (player died).
+     */
     private boolean gameOver = false;
 
+    /**
+     * Constructs the game board with 600x600 dimensions and adds the player plane.
+     */
     public GameBoard() {
         super();
         this.setPreferredSize(new Dimension(600, 600));
         addActor(playerPlane);
     }
 
+    /**
+     * Adds an actor to the game world. <br>
+     *
+     * @param actor the actor to add
+     */
     private void addActor(Actor actor) {
         this.actors.add(actor);
         if (actor instanceof DamageableGameObject damageable)
             this.damageableGameObjects.add(damageable);
-        if (actor instanceof KeyListener keyListener)
-            this.keyListeners.add(keyListener);
     }
 
+    /**
+     * Removes an actor from the game world. <br>
+     *
+     * @param actor the actor to remove
+     */
     private void removeActor(Actor actor) {
         this.actors.remove(actor);
         if (actor instanceof DamageableGameObject damageable)
             this.damageableGameObjects.remove(damageable);
-        if (actor instanceof KeyListener keyListener)
-            this.keyListeners.remove(keyListener);
     }
 
     /**
-     * Function comparable to Greenfoot's "act". Will be called every frame by the GameManager.
+     * Main game loop called every frame by the GameManager. <br>
      */
     public void act() {
+        // If the game is over, skip all updates and wait for restart
         if (gameOver) {
             return;
         }
-
         frameCount++;
+
+        // Execute any pending tasks
         while (!pendingTasks.isEmpty()) {
             pendingTasks.poll().run();
         }
 
+        // Update all actors
         for (Actor actor : new ArrayList<>(actors)) {
             actor.act(context);
         }
 
+        // Check for game over condition
         if (playerPlane.isDead()) {
             gameOver = true;
             return;
         }
 
+        // If the level hasn't ended, update the enemy spawner
         if (!levelEnd) {
             enemySpawner.update(context);
         }
     }
 
+    /**
+     * Ends the current level by removing all enemies and bullets. <br>
+     * Opens the upgrade shop UI.
+     */
     private void endLevel() {
         for (Actor actor : new ArrayList<>(actors)) {
             if (actor instanceof EnemyPlane || actor instanceof Bullet) {
@@ -84,6 +152,10 @@ public class GameBoard extends JPanel implements KeyListener {
         levelEnd = true;
     }
 
+    /**
+     * Advances to the next level. <br>
+     * Increments level counter, creates new enemy spawner, and restores player health to maximum.
+     */
     private void nextLevel() {
         levelEnd = false;
         currentLevel++;
@@ -91,6 +163,12 @@ public class GameBoard extends JPanel implements KeyListener {
         playerPlane.setHealth(playerPlane.getMaxHealth());
     }
 
+    /**
+     * Attempts to purchase an upgrade if the player has enough coins and hasn't reached max level. <br>
+     * Deducts cost and applies upgrade on success.
+     *
+     * @param upgrade the upgrade to purchase
+     */
     private void tryPurchaseUpgrade(Upgrade upgrade) {
         int currentLevel = playerPlane.getUpgradeLevel(upgrade);
         if (currentLevel >= upgrade.getMaxLevel()) {
@@ -105,8 +183,10 @@ public class GameBoard extends JPanel implements KeyListener {
     }
 
     /**
-     * Re-render this board.
-     * @param g the <code>Graphics</code> object, used for drawing elements
+     * Renders all actors and UI elements. <br>
+     * In debug mode, also draws bounding boxes and actor names.
+     *
+     * @param g the Graphics object used for drawing
      */
     @Override
     public void paintComponent(Graphics g) {
@@ -117,14 +197,20 @@ public class GameBoard extends JPanel implements KeyListener {
                 Vector pos = actor.getPosition();
                 Vector size = actor.getSize();
                 g.setColor(actor.getFaction().getColor());
-                g.drawRect((int) pos.x(), (int) pos.y(), (int) size.x(), (int) size.y());
-                g.drawString(actor.getClass().getSimpleName(), (int) pos.x(), (int) pos.y() - 5);
+                g.drawRect((int) pos.getX(), (int) pos.getY(), (int) size.getX(), (int) size.getY());
+                g.drawString(actor.getClass().getSimpleName(), (int) pos.getX(), (int) pos.getY() - 5);
             }
         }
 
         drawUI(g);
     }
 
+    /**
+     * Draws the main game UI including level, score, coins, and progress bar. <br>
+     * Also renders game over or level end UI when applicable.
+     *
+     * @param g the Graphics object used for drawing
+     */
     private void drawUI(Graphics g) {
         g.setColor(Color.BLACK);
         g.setFont(new Font("Arial", Font.BOLD, 16));
@@ -152,6 +238,11 @@ public class GameBoard extends JPanel implements KeyListener {
         }
     }
 
+    /**
+     * Draws the game over screen with final score, level reached, and restart instruction.
+     *
+     * @param g the Graphics object used for drawing
+     */
     private void drawGameOverUI(Graphics g) {
         g.setColor(new Color(0, 0, 0, 180));
         g.fillRect(0, 0, getWidth(), getHeight());
@@ -179,6 +270,13 @@ public class GameBoard extends JPanel implements KeyListener {
         g.drawString(restartText, (getWidth() - textWidth) / 2, getHeight() / 2 + 100);
     }
 
+    /**
+     * Draws the level end screen with upgrade shop UI. <br>
+     * Shows available upgrades with costs, levels, and purchase options (keys 1-4). <br>
+     * Displays instruction to press ENTER to continue to next level.
+     *
+     * @param g the Graphics object used for drawing
+     */
     private void drawLevelEndUI(Graphics g) {
         g.setColor(new Color(0, 0, 0, 200));
         g.fillRect(0, 0, getWidth(), getHeight());
@@ -276,35 +374,23 @@ public class GameBoard extends JPanel implements KeyListener {
         g.drawString(instructions, (getWidth() - textWidth) / 2, getHeight() - 40);
     }
 
-    /**
-     * Invoked when a key has been typed.
-     * See the class description for {@link KeyEvent} for a definition of
-     * a key typed event.
-     *
-     * @param e the event to be processed
-     */
+
     @Override
     public void keyTyped(KeyEvent e) {
-        this.keyListeners.forEach(listener -> listener.keyTyped(e));
     }
 
-    /**
-     * Invoked when a key has been pressed.
-     * See the class description for {@link KeyEvent} for a definition of
-     * a key pressed event.
-     *
-     * @param e the event to be processed
-     */
     @Override
     public void keyPressed(KeyEvent e) {
+        // Add the pressed key to the set of currently pressed keys
         this.pressedKeys.add(e.getKeyCode());
-        this.keyListeners.forEach(listener -> listener.keyPressed(e));
 
         if (gameOver) {
+            // If the game is over, only listen for the restart key
             if (e.getKeyCode() == KeyEvent.VK_R) {
                 restartGame();
             }
         } else if (levelEnd) {
+            // If the level has ended, listen for upgrade purchases and advancing to next level
             if (e.getKeyCode() == KeyEvent.VK_ENTER) {
                 nextLevel();
             }
@@ -318,6 +404,10 @@ public class GameBoard extends JPanel implements KeyListener {
         }
     }
 
+    /**
+     * Resets the game state to start a new game. <br>
+     * Clears all actors, resets score and coins, and reinitializes player and enemy spawner.
+     */
     private void restartGame() {
         gameOver = false;
         levelEnd = false;
@@ -328,7 +418,6 @@ public class GameBoard extends JPanel implements KeyListener {
 
         actors.clear();
         damageableGameObjects.clear();
-        keyListeners.clear();
         pendingTasks.clear();
 
         playerPlane = new PlayerPlane();
@@ -337,17 +426,9 @@ public class GameBoard extends JPanel implements KeyListener {
         enemySpawner = new EnemySpawner(currentLevel);
     }
 
-    /**
-     * Invoked when a key has been released.
-     * See the class description for {@link KeyEvent} for a definition of
-     * a key released event.
-     *
-     * @param e the event to be processed
-     */
     @Override
     public void keyReleased(KeyEvent e) {
         this.pressedKeys.remove(e.getKeyCode());
-        this.keyListeners.forEach(listener -> listener.keyReleased(e));
     }
 
     private class GameBoardContext implements GameContext {
@@ -408,6 +489,7 @@ public class GameBoard extends JPanel implements KeyListener {
             score += points;
             coins += points;
 
+            // Check if all enemies have been spawned and killed to end the level
             long enemyCount = actors.stream()
                     .filter(actor -> actor instanceof EnemyPlane plane && !plane.isDead())
                     .count();
